@@ -26,10 +26,17 @@ body{
 }
 
 .ReadingsBox{
-  background-color: rgb(196, 255, 109);
+  background-color: #f0fdf4;
   border-radius: 8px;
   padding: 16px;
+  border: 2px solid #b9f8cf;
+  
   /* min-width not needed anymore */
+}
+
+.SensorText{
+  color: #00a63e;
+  margin: 16px;
 }
 
 
