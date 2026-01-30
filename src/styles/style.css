@@ -16,6 +16,12 @@ body{
     
 }
 
+.HLayout{
+
+  display: flex;
+    flex-direction: row;
+}
+
 .SensorsCont{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -37,6 +43,13 @@ body{
 .SensorText{
   color: #00a63e;
   margin: 16px;
+}
+
+.SensorValue{
+  color: #00a63e;
+  margin: 16px;
+  margin-right: 8px;
+  
 }
 
 
