@@ -1,43 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="src/styles/style.css">
     <title>Crop Monitoring Dashboard</title>
 </head>
+
 <body>
-    <section class="hero">
-        <img class="icon" src="src/assets/CropCareLogo.png">
-        <div >
-             <h1 style="margin-bottom: 1%;">Crop Monitoring Dashboard</h1>
-             <h3 style="margin-top: 1%;">IoT Environmental Control System</h3>
-        </div>
-       
-    </section>
-    <section class="SensorsCont">
-        <div class="ReadingsBox">
-            <h4 class="SensorText">Air Temperature</h4>
-            <div  class="HLayout">
-                <h2 class="SensorValue">25</h2>
-                <h5>°C</h5>
+    <main class="page">
+
+        <section class="hero">
+            <img class="icon" src="src/assets/CropCareLogo.png">
+            <div>
+                <h1 style="margin-bottom: 1%;">Crop Monitoring Dashboard</h1>
+                <h3 style="margin-top: 1%;">IoT Environmental Control System</h3>
             </div>
-            
-        </div>
-        <div class="ReadingsBox">
-              <h4 class="SensorText">Air Humidity</h4>
-               <div  class="HLayout">
-                <h2 class="SensorValue">62.7</h2>
-                <h5>%</h5>
+
+        </section>
+        <section class="SensorsCont">
+            <div class="ReadingsBox">
+                <h4 class="SensorText">Air Temperature</h4>
+                <div class="HLayout">
+                    <h2 class="SensorValue">25</h2>
+                    <h5>°C</h5>
+                </div>
+
             </div>
-        </div>
-        <div class="ReadingsBox">
-              <h4 class="SensorText">Luminosity</h4>
-               <div  class="HLayout">
-                <h2 class="SensorValue">5670</h2>
-                <h5>lux</h5>
+            <div class="ReadingsBox">
+                <h4 class="SensorText">Air Humidity</h4>
+                <div class="HLayout">
+                    <h2 class="SensorValue">62.7</h2>
+                    <h5>%</h5>
+                </div>
             </div>
-        </div>
-    </section>
+            <div class="ReadingsBox">
+                <h4 class="SensorText">Luminosity</h4>
+                <div class="HLayout">
+                    <h2 class="SensorValue">5670</h2>
+                    <h5>lux</h5>
+                </div>
+            </div>
+        </section>
+        <section class="MainCont">
+            <div class="GraphContainer" style=" grid-column: span 2; grid-row: span 2;">
+                <div class="Graph">
+                    <h4 class="SensorText">Air Temperature</h4>
+                    <div class="HLayout">
+                        <h2 class="SensorValue">25</h2>
+                        <h5>°C</h5>
+                    </div>
+                      <h4 class="SensorText">Air Temperature</h4>
+                    <div class="HLayout">
+                        <h2 class="SensorValue">25</h2>
+                        <h5>°C</h5>
+                    </div>
+
+                </div>
+            </div>
+            <div>
+
+                <div class="SytemStatus" style="grid-row: span 2;">
+                    <div class="ReadingsBox">
+                        <h4 class="SensorText">Air Temperature</h4>
+                        <div class="HLayout">
+                            <h2 class="SensorValue">25</h2>
+                            <h5>°C</h5>
+                        </div>
+
+                    </div>
+                </div>
+
+                  <div class="SytemStatus" style="grid-row: span 2; margin-top: 20px;">
+                    <div class="ReadingsBox">
+                        <h4 class="SensorText">Air Temperature</h4>
+                        <div class="HLayout">
+                            <h2 class="SensorValue">25</h2>
+                            <h5>°C</h5>
+                        </div>
+                        
+
+                    </div>
+                </div>
+            </div>
+
+
+        </section>
+    </main>
+
 </body>
+
 </html>
