@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg width="100%" height="100%" viewBox="0 0 161 179" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-    <g transform="matrix(1,0,0,1,-536.2982,-9970.237376)">
+<svg width="100%" height="100%" viewBox="0 0 278 296" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,-477.477866,-9911.463593)">
         <g transform="matrix(0.699704,0,0,0.699704,413.379055,5608.751231)">
             <g id="Cropcare-color-pictorial" serif:id="Cropcare color pictorial" transform="matrix(1.209614,0,0,1.209614,-596.464306,629.177108)">
+                <g transform="matrix(0.463484,0,0,0.688818,158.249787,1076.352888)">
+                    <rect x="885.87" y="5062.604" width="708.575" height="507.224" style="fill:none;"/>
+                </g>
                 <g transform="matrix(0.462852,0,0,0.462852,159.033677,2197.770875)">
                     <g transform="matrix(1,0,0,1,0,0.094488)">
                         <path d="M1310.832,5361.496C1321.078,5420.033 1314.894,5458.286 1301.465,5484.237C1289.653,5507.063 1272.353,5519.137 1258.748,5527.37C1252.861,5530.932 1246.37,5535.731 1240.157,5541.841C1233.944,5535.731 1227.454,5530.932 1221.567,5527.37C1207.962,5519.137 1190.662,5507.063 1178.85,5484.237C1165.421,5458.286 1159.237,5420.033 1169.483,5361.496C1207.987,5334.757 1240.157,5326.878 1240.157,5326.878C1240.157,5326.878 1272.328,5334.757 1310.832,5361.496Z" style="fill:url(#_Linear1);"/>
