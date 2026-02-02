@@ -47,14 +47,6 @@ Réponse JSON (array):
 ]
 ```
 
-## Pour coller au design Figma
-
-Le lien Figma “Make” timeout côté extraction automatique. Si tu m’envoies:
-
-- 2–3 captures (ou export PDF) des frames principales
-- les noms des pages (Dashboard / Analytics / Devices / Settings)
-
-je te fais une version **pixel-perfect** (spacing, couleurs, icônes, etc.).
 
 ## Backend minimal inclus (PHP/XAMPP) + ESP32
 
