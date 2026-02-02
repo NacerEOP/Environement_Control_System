@@ -1,89 +1,426 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>IoT Crop Monitoring Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar" aria-label="Navigation">
+        <div class="sidebar__brand">
+          <div class="brandmark" aria-hidden="true">CC</div>
+          <div class="sidebar__brandText">
+            <div class="sidebar__brandTitle">CropCare</div>
+            <div class="sidebar__brandSub">IoT Dashboard</div>
+          </div>
+        </div>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="src/styles/style.css">
-    <title>Crop Monitoring Dashboard</title>
-</head>
+        <nav class="sidebar__nav">
+          <button class="navItem navItem--active" data-route="dashboard">
+            <span class="navItem__icon" aria-hidden="true">▦</span>
+            <span class="navItem__label">Dashboard</span>
+          </button>
+          <button class="navItem" data-route="analytics">
+            <span class="navItem__icon" aria-hidden="true">↗</span>
+            <span class="navItem__label">Analytics</span>
+          </button>
+          <button class="navItem" data-route="devices">
+            <span class="navItem__icon" aria-hidden="true">◎</span>
+            <span class="navItem__label">Devices</span>
+          </button>
+          <button class="navItem" data-route="settings">
+            <span class="navItem__icon" aria-hidden="true">⚙</span>
+            <span class="navItem__label">Settings</span>
+          </button>
+        </nav>
 
-<body>
-    <main class="page">
+        <div class="sidebar__footer">
+          <div class="statusPill" title="État backend">
+            <span class="statusDot" id="backendDot" aria-hidden="true"></span>
+            <span class="statusText" id="backendText">Backend: non connecté</span>
+          </div>
+          <div class="sidebar__hint">
+            <div class="sidebar__hintTitle">API</div>
+            <div class="sidebar__hintText">
+              Configure `src/config.js` pour brancher ton backend (Arduino → API).
+            </div>
+          </div>
+        </div>
+      </aside>
 
-        <section class="hero">
-            <img class="icon" src="src/assets//cropcare-logo/png/pictorial-mockup/color.png">
-            <div>
-                <h1 style="margin-bottom: 1%;">Crop Monitoring Dashboard</h1>
-                <h3 style="margin-top: 1%;">IoT Environmental Control System</h3>
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar__left">
+            <h1 class="pageTitle" id="pageTitle">Dashboard</h1>
+            <div class="pageSubtitle" id="pageSubtitle">
+              Suivi en temps réel: température, humidité et luminosité
+            </div>
+          </div>
+          <div class="topbar__right">
+            <div class="chip" id="lastUpdated">Dernière mise à jour: —</div>
+            <button class="btn btn--primary" id="refreshBtn" type="button">
+              Rafraîchir
+            </button>
+          </div>
+        </header>
+
+        <section class="content">
+          <!-- DASHBOARD -->
+          <section class="route route--active" data-route="dashboard">
+            <div class="grid grid--cards">
+              <article class="card metric" data-metric="temperature">
+                <div class="card__head">
+                  <div>
+                    <div class="card__kicker">Température</div>
+                    <div class="card__title">Actuelle</div>
+                  </div>
+                  <div class="badge badge--orange" id="tempState">—</div>
+                </div>
+                <div class="metric__value">
+                  <span id="temperatureValue">—</span>
+                  <span class="metric__unit">°C</span>
+                </div>
+                <div class="metric__meta">
+                  <span class="muted">Tendance</span>
+                  <span class="delta" id="temperatureDelta">—</span>
+                </div>
+                <div class="spark">
+                  <canvas id="tempSpark" height="40" aria-label="Température"></canvas>
+                </div>
+              </article>
+
+              <article class="card metric" data-metric="humidity">
+                <div class="card__head">
+                  <div>
+                    <div class="card__kicker">Humidité</div>
+                    <div class="card__title">Air (DHT)</div>
+                  </div>
+                  <div class="badge badge--blue" id="humState">—</div>
+                </div>
+                <div class="metric__value">
+                  <span id="humidityValue">—</span>
+                  <span class="metric__unit">%</span>
+                </div>
+                <div class="metric__meta">
+                  <span class="muted">Tendance</span>
+                  <span class="delta" id="humidityDelta">—</span>
+                </div>
+                <div class="spark">
+                  <canvas id="humSpark" height="40" aria-label="Humidité"></canvas>
+                </div>
+              </article>
+
+              <article class="card metric" data-metric="soil">
+                <div class="card__head">
+                  <div>
+                    <div class="card__kicker">Humidité</div>
+                    <div class="card__title">Sol</div>
+                  </div>
+                  <div class="badge badge--green" id="soilState">—</div>
+                </div>
+                <div class="metric__value">
+                  <span id="soilValue">—</span>
+                  <span class="metric__unit">%</span>
+                </div>
+                <div class="metric__meta">
+                  <span class="muted">Recommandation</span>
+                  <span class="delta" id="soilAdvice">—</span>
+                </div>
+                <div class="spark">
+                  <canvas id="soilSpark" height="40" aria-label="Humidité sol"></canvas>
+                </div>
+              </article>
+
+              <article class="card metric" data-metric="light">
+                <div class="card__head">
+                  <div>
+                    <div class="card__kicker">Luminosité</div>
+                    <div class="card__title">Actuelle</div>
+                  </div>
+                  <div class="badge badge--purple" id="lightState">—</div>
+                </div>
+                <div class="metric__value">
+                  <span id="lightValue">—</span>
+                  <span class="metric__unit">lx</span>
+                </div>
+                <div class="metric__meta">
+                  <span class="muted">Tendance</span>
+                  <span class="delta" id="lightDelta">—</span>
+                </div>
+                <div class="spark">
+                  <canvas id="lightSpark" height="40" aria-label="Luminosité"></canvas>
+                </div>
+              </article>
             </div>
 
-        </section>
-        <section class="SensorsCont">
-            <div class="ReadingsBox">
-                <h4 class="SensorText">Air Temperature</h4>
-                <div class="HLayout">
-                    <h2 class="SensorValue">25</h2>
-                    <h5>°C</h5>
+            <div class="grid grid--main">
+              <section class="card card--wide">
+                <div class="card__head card__head--tight">
+                  <div>
+                    <div class="card__kicker">Historique</div>
+                    <div class="card__title">Température / Humidité / Luminosité</div>
+                  </div>
+                  <div class="segmented" role="group" aria-label="Période">
+                    <button class="segmented__btn segmented__btn--active" data-range="1h" type="button">1h</button>
+                    <button class="segmented__btn" data-range="24h" type="button">24h</button>
+                    <button class="segmented__btn" data-range="7d" type="button">7j</button>
+                  </div>
+                </div>
+                <div class="chart">
+                  <canvas id="mainChart" height="120" aria-label="Historique capteurs"></canvas>
+                </div>
+              </section>
+
+              <section class="card">
+                <div class="card__head card__head--tight">
+                  <div>
+                    <div class="card__kicker">État</div>
+                    <div class="card__title">Système</div>
+                  </div>
                 </div>
 
-            </div>
-            <div class="ReadingsBox">
-                <h4 class="SensorText">Air Humidity</h4>
-                <div class="HLayout">
-                    <h2 class="SensorValue">62.7</h2>
-                    <h5>%</h5>
+                <div class="kpiList">
+                  <div class="kpi">
+                    <div class="kpi__label">Device</div>
+                    <div class="kpi__value" id="deviceName">Arduino</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi__label">Échantillonnage</div>
+                    <div class="kpi__value"><span id="sampleRate">—</span> s</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi__label">Dernier paquet</div>
+                    <div class="kpi__value" id="lastPacket">—</div>
+                  </div>
+                  <div class="kpi">
+                    <div class="kpi__label">Alertes</div>
+                    <div class="kpi__value"><span class="pill" id="alertsCount">0</span></div>
+                  </div>
                 </div>
-            </div>
-            <div class="ReadingsBox">
-                <h4 class="SensorText">Luminosity</h4>
-                <div class="HLayout">
-                    <h2 class="SensorValue">5670</h2>
-                    <h5>lux</h5>
+
+                <div class="divider"></div>
+
+                <div class="alerts" aria-label="Alertes">
+                  <div class="alerts__title">Alertes récentes</div>
+                  <ul class="alerts__list" id="alertsList"></ul>
                 </div>
+              </section>
             </div>
-        </section>
-        <section class="MainCont">
-            <div class="Graph" style=" grid-column: span 1; grid-row: span 2; height: 100%;  ">
-              
-                     <h4 class="SensorText">Recordings</h4>
-                        <div class="HLayout">
-                            <h2 class="SensorValue">25</h2>
-                            <h5>°C</h5>
-                        </div>
 
-                
-            </div>
-            <div style=" display: grid; gap: 20px;  width: 100%; height: 100%; grid-row: span 2;">
+            <div class="grid grid--two">
+              <section class="card">
+                <div class="card__head card__head--tight">
+                  <div>
+                    <div class="card__kicker">Météo</div>
+                    <div class="card__title">Algérie — <span id="weatherCityLabel">—</span></div>
+                  </div>
+                  <div class="chip chip--muted" id="weatherUpdated">—</div>
+                </div>
 
-              
-                    <div class="ReadingsBox" >
-                        <h4 class="SensorText">System Status</h4>
-                        <div class="HLayout">
-                            <h2 class="SensorValue">25</h2>
-                            <h5>°C</h5>
-                        </div>
-
+                <div class="weatherNow">
+                  <div class="weatherNow__left">
+                    <div class="weatherNow__temp"><span id="weatherNowTemp">—</span><span class="weatherNow__unit">°C</span></div>
+                    <div class="weatherNow__meta">
+                      <span class="muted">Vent</span> <span id="weatherNowWind">—</span>
+                      <span class="muted">Pluie</span> <span id="weatherNowRain">—</span>
                     </div>
-              
+                  </div>
+                  <div class="weatherNow__right">
+                    <div class="weatherIcon" id="weatherIcon" aria-hidden="true"></div>
+                    <div class="badge badge--blue" id="weatherNowLabel">—</div>
+                    <div class="muted" style="font-size:12px;margin-top:8px" id="weatherSource">Source: Open‑Meteo</div>
+                  </div>
+                </div>
+              </section>
 
-                
-                    <div class="ReadingsBox" >
-                        <h4 class="SensorText">Weather Conditions</h4>
-                        <div class="HLayout">
-                            <h2 class="SensorValue">25</h2>
-                            <h5>°C</h5>
-                        </div>
-                        
-
-                    </div>
-                
+              <section class="card">
+                <div class="card__head card__head--tight">
+                  <div>
+                    <div class="card__kicker">Alertes météo</div>
+                    <div class="card__title">Cette semaine</div>
+                  </div>
+                  <div class="pill" id="weatherAlertsCount">0</div>
+                </div>
+                <ul class="alerts__list" id="weatherAlertsList"></ul>
+              </section>
             </div>
 
+            <section class="card">
+              <div class="card__head card__head--tight">
+                <div>
+                  <div class="card__kicker">Prévisions</div>
+                  <div class="card__title">7 jours</div>
+                </div>
+              </div>
+              <div class="tableWrap">
+                <table class="table" aria-label="Prévisions météo 7 jours">
+                  <thead>
+                    <tr>
+                      <th>Jour</th>
+                      <th>Tmin (°C)</th>
+                      <th>Tmax (°C)</th>
+                      <th>Pluie (mm)</th>
+                      <th>Vent max (km/h)</th>
+                      <th>Rafales (km/h)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="weatherTableBody"></tbody>
+                </table>
+              </div>
+            </section>
 
+            <section class="card">
+              <div class="card__head card__head--tight">
+                <div>
+                  <div class="card__kicker">Logs</div>
+                  <div class="card__title">Dernières lectures</div>
+                </div>
+                <div class="chip chip--muted">API: <span id="apiBaseLabel">—</span></div>
+              </div>
+
+              <div class="tableWrap">
+                <table class="table" aria-label="Tableau des lectures">
+                  <thead>
+                    <tr>
+                      <th>Horodatage</th>
+                      <th>Temp (°C)</th>
+                      <th>Humidité air (%)</th>
+                      <th>Humidité sol (%)</th>
+                      <th>Lumière (lx)</th>
+                      <th>État</th>
+                    </tr>
+                  </thead>
+                  <tbody id="readingsTableBody"></tbody>
+                </table>
+              </div>
+            </section>
+          </section>
+
+          <!-- ANALYTICS -->
+          <section class="route" data-route="analytics">
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <div class="card__kicker">Analytics</div>
+                  <div class="card__title">Résumé</div>
+                </div>
+              </div>
+              <p class="muted" style="margin: 0">
+                Page prête pour ajouter des statistiques (min/max/moyenne, anomalies, corrélations).
+              </p>
+            </div>
+          </section>
+
+          <!-- DEVICES -->
+          <section class="route" data-route="devices">
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <div class="card__kicker">Devices</div>
+                  <div class="card__title">Capteurs & passerelle</div>
+                </div>
+              </div>
+              <div class="grid grid--two">
+                <div class="card card--inner">
+                  <div class="card__title">DHT (Temp/Humidité)</div>
+                  <div class="muted">Source: Arduino → API</div>
+                </div>
+                <div class="card card--inner">
+                  <div class="card__title">Capteur humidité sol</div>
+                  <div class="muted">Source: Arduino → API</div>
+                </div>
+                <div class="card card--inner">
+                  <div class="card__title">Capteur luminosité</div>
+                  <div class="muted">Source: Arduino → API</div>
+                </div>
+                <div class="card card--inner">
+                  <div class="card__title">Backend</div>
+                  <div class="muted">
+                    Expose un endpoint `/api/latest` + `/api/history?range=...`
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SETTINGS -->
+          <section class="route" data-route="settings">
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <div class="card__kicker">Settings</div>
+                  <div class="card__title">Configuration API & météo</div>
+                </div>
+              </div>
+
+              <form class="form" id="settingsForm">
+                <label class="field">
+                  <span class="field__label">Base URL API</span>
+                  <input class="input" id="apiBaseInput" placeholder="ex: http://localhost/cropcare-api" />
+                  <span class="field__hint">La dashboard fetch sur `BASE/api/latest` et `BASE/api/history`.</span>
+                </label>
+
+                <div class="grid grid--two">
+                  <label class="field">
+                    <span class="field__label">Intervalle refresh (ms)</span>
+                    <input class="input" id="pollMsInput" type="number" min="1000" step="500" />
+                  </label>
+                  <label class="field">
+                    <span class="field__label">Mode</span>
+                    <select class="input" id="dataModeSelect">
+                      <option value="mock">Mock (démo)</option>
+                      <option value="api">API (backend)</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div class="divider"></div>
+
+                <div class="grid grid--two">
+                  <label class="field">
+                    <span class="field__label">Météo activée</span>
+                    <select class="input" id="weatherEnabledSelect">
+                      <option value="true">Oui</option>
+                      <option value="false">Non</option>
+                    </select>
+                    <span class="field__hint">Affiche la météo de la semaine + alertes (Algérie).</span>
+                  </label>
+
+                  <label class="field">
+                    <span class="field__label">Ville (Algérie)</span>
+                    <select class="input" id="weatherCitySelect">
+                      <option value="Alger">Alger</option>
+                      <option value="Oran">Oran</option>
+                      <option value="Constantine">Constantine</option>
+                      <option value="Annaba">Annaba</option>
+                      <option value="Blida">Blida</option>
+                      <option value="Setif">Sétif</option>
+                      <option value="Tlemcen">Tlemcen</option>
+                    </select>
+                    <span class="field__hint">On géocode la ville pour obtenir latitude/longitude.</span>
+                  </label>
+                </div>
+
+                <div class="form__actions">
+                  <button class="btn btn--primary" type="submit">Enregistrer</button>
+                  <button class="btn btn--ghost" id="resetSettingsBtn" type="button">Reset</button>
+                </div>
+              </form>
+            </div>
+          </section>
         </section>
-    </main>
+      </main>
+    </div>
 
-</body>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script type="module" src="./src/app.js"></script>
+  </body>
 </html>

@@ -1,0 +1,9 @@
+/* Minimal font setup for the generated Make/Vite project.
+   You can replace this with your preferred font import if needed. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+html, body {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", Segoe UI, sans-serif;
+}
+
