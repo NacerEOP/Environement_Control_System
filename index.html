@@ -7,16 +7,33 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Serif:opsz,wght@8..144,700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
-    <div class="app">
-      <aside class="sidebar" aria-label="Navigation">
+    <div class="app" id="app">
+      <!-- Mobile header: logo + burger (visible only on small screens) -->
+      <header class="mobileHeader" aria-label="Menu principal">
+        <a href="#" class="mobileHeader__logo" aria-label="CropCare accueil" id="mobileLogoLink">
+          <img src="./Supermegassets/cropcare-logo/svg/pictorial-lockup/color.svg" alt="" width="40" height="43" class="mobileHeader__logoImg" />
+          <span class="mobileHeader__logoText">CropCare</span>
+        </a>
+        <button type="button" class="burger" id="burgerBtn" aria-label="Ouvrir le menu" aria-expanded="false">
+          <span class="burger__line"></span>
+          <span class="burger__line"></span>
+          <span class="burger__line"></span>
+        </button>
+      </header>
+
+      <div class="sidebarOverlay" id="sidebarOverlay" aria-hidden="true"></div>
+
+      <aside class="sidebar" id="sidebar" aria-label="Navigation">
         <div class="sidebar__brand">
-          <div class="brandmark" aria-hidden="true">CC</div>
+          <div class="brandmark brandmark--img" aria-hidden="true">
+            <img src="./Supermegassets/cropcare-logo/svg/pictorial-lockup/color.svg" alt="" width="40" height="43" />
+          </div>
           <div class="sidebar__brandText">
             <div class="sidebar__brandTitle">CropCare</div>
             <div class="sidebar__brandSub">IoT Dashboard</div>
@@ -325,26 +342,40 @@
               <div class="card__head">
                 <div>
                   <div class="card__kicker">Devices</div>
-                  <div class="card__title">Capteurs & passerelle</div>
+                  <div class="card__title">Input & Output</div>
                 </div>
               </div>
-              <div class="grid grid--two">
-                <div class="card card--inner">
-                  <div class="card__title">DHT (Temp/Humidité)</div>
-                  <div class="muted">Source: Arduino → API</div>
+
+              <div class="devicesSection">
+                <h3 class="devicesSection__title">Input devices (capteurs)</h3>
+                <div class="grid grid--two">
+                  <div class="card card--inner">
+                    <div class="card__title">DHT11 (température + humidité air)</div>
+                    <div class="muted">GPIO 4 · Données envoyées par l’ESP32 vers l’API</div>
+                  </div>
+                  <div class="card card--inner">
+                    <div class="card__title">Capteur humidité sol</div>
+                    <div class="muted">GPIO 34 (analogique) · Données envoyées par l’ESP32 vers l’API</div>
+                  </div>
+                  <div class="card card--inner">
+                    <div class="card__title">Capteur luminosité (BH1750)</div>
+                    <div class="muted">I2C SDA 21, SCL 20 · Données envoyées par l’ESP32 vers l’API</div>
+                  </div>
                 </div>
-                <div class="card card--inner">
-                  <div class="card__title">Capteur humidité sol</div>
-                  <div class="muted">Source: Arduino → API</div>
-                </div>
-                <div class="card card--inner">
-                  <div class="card__title">Capteur luminosité</div>
-                  <div class="muted">Source: Arduino → API</div>
-                </div>
-                <div class="card card--inner">
-                  <div class="card__title">Backend</div>
-                  <div class="muted">
-                    Expose un endpoint `/api/latest` + `/api/history?range=...`
+              </div>
+
+              <div class="divider"></div>
+
+              <div class="devicesSection">
+                <h3 class="devicesSection__title">Output devices (équipements)</h3>
+                <div class="grid grid--two">
+                  <div class="card card--inner">
+                    <div class="card__title">Lampe UV</div>
+                    <div class="muted">Éclairage UV pour la croissance · Contrôle à prévoir (relais/ESP32)</div>
+                  </div>
+                  <div class="card card--inner">
+                    <div class="card__title">Pompe à eau</div>
+                    <div class="muted">Irrigation · Contrôle à prévoir (relais/ESP32)</div>
                   </div>
                 </div>
               </div>
@@ -364,8 +395,8 @@
               <form class="form" id="settingsForm">
                 <label class="field">
                   <span class="field__label">Base URL API</span>
-                  <input class="input" id="apiBaseInput" placeholder="ex: http://localhost/cropcare-api" />
-                  <span class="field__hint">La dashboard fetch sur `BASE/api/latest` et `BASE/api/history`.</span>
+                  <input class="input" id="apiBaseInput" placeholder="http://localhost/Hackaton%20projet%20Crop%20care" />
+                  <span class="field__hint">Adresse du backend (sans /api). Le site appelle BASE/api/latest et BASE/api/history.</span>
                 </label>
 
                 <div class="grid grid--two">
@@ -374,11 +405,12 @@
                     <input class="input" id="pollMsInput" type="number" min="1000" step="500" />
                   </label>
                   <label class="field">
-                    <span class="field__label">Mode</span>
+                    <span class="field__label">Mode données</span>
                     <select class="input" id="dataModeSelect">
-                      <option value="mock">Mock (démo)</option>
-                      <option value="api">API (backend)</option>
+                      <option value="mock">Mock (données simulées)</option>
+                      <option value="api">API (données des capteurs ESP32)</option>
                     </select>
+                    <span class="field__hint">API = lire les mesures envoyées par l’ESP32 via ton backend.</span>
                   </label>
                 </div>
 

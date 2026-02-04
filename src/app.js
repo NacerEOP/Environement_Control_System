@@ -530,10 +530,50 @@ function setRoute(route) {
   }
 }
 
+function closeMobileMenu() {
+  const app = $("#app");
+  const burger = $("#burgerBtn");
+  const overlay = $("#sidebarOverlay");
+  if (app) app.classList.remove("menu-open");
+  if (burger) burger.setAttribute("aria-expanded", "false");
+  if (overlay) overlay.setAttribute("aria-hidden", "true");
+}
+
+function openMobileMenu() {
+  const app = $("#app");
+  const burger = $("#burgerBtn");
+  const overlay = $("#sidebarOverlay");
+  if (app) app.classList.add("menu-open");
+  if (burger) burger.setAttribute("aria-expanded", "true");
+  if (overlay) overlay.setAttribute("aria-hidden", "false");
+}
+
 function wireNavigation() {
   $$(".navItem").forEach((b) => {
-    b.addEventListener("click", () => setRoute(b.dataset.route));
+    b.addEventListener("click", () => {
+      setRoute(b.dataset.route);
+      closeMobileMenu();
+    });
   });
+
+  const burger = $("#burgerBtn");
+  const overlay = $("#sidebarOverlay");
+  if (burger) {
+    burger.addEventListener("click", () => {
+      const open = burger.getAttribute("aria-expanded") === "true";
+      if (open) closeMobileMenu();
+      else openMobileMenu();
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener("click", closeMobileMenu);
+  }
+  const mobileLogo = $("#mobileLogoLink");
+  if (mobileLogo) {
+    mobileLogo.addEventListener("click", (e) => {
+      e.preventDefault();
+    });
+  }
 }
 
 function wireSettings(cfg, onChange) {
@@ -646,14 +686,63 @@ function init() {
     if (readings.length > 100) readings = readings.slice(-100);
   }
 
+  function formatSensorValue(v, decimals = 0) {
+    if (v == null || !Number.isFinite(v)) return "—";
+    return decimals === 0 ? String(Math.round(v)) : v.toFixed(decimals);
+  }
+
   function updateUi() {
     const last = points[points.length - 1];
-    if (!last) return;
+    const hasSensorData = last && (
+      (last.temperature != null && Number.isFinite(last.temperature)) ||
+      (last.humidity != null && Number.isFinite(last.humidity)) ||
+      (last.soil != null && Number.isFinite(last.soil)) ||
+      (last.light != null && Number.isFinite(last.light))
+    );
 
-    valueEls.temperature.textContent = last.temperature.toFixed(1);
-    valueEls.humidity.textContent = last.humidity.toFixed(0);
-    valueEls.soil.textContent = last.soil.toFixed(0);
-    valueEls.light.textContent = last.light.toFixed(0);
+    if (!hasSensorData) {
+      valueEls.temperature.textContent = "—";
+      valueEls.humidity.textContent = "—";
+      valueEls.soil.textContent = "—";
+      valueEls.light.textContent = "—";
+      setBadge(stateEls.temp, { label: "—", level: "neutral" });
+      setBadge(stateEls.hum, { label: "—", level: "neutral" });
+      setBadge(stateEls.soil, { label: "—", level: "neutral" });
+      setBadge(stateEls.light, { label: "—", level: "neutral" });
+      deltaEls.temperature.textContent = "—";
+      deltaEls.humidity.textContent = "—";
+      deltaEls.light.textContent = "—";
+      if (soilAdviceEl) soilAdviceEl.textContent = "—";
+      if (lastUpdatedEl) lastUpdatedEl.textContent = "Aucune donnée capteur";
+      if (lastPacketEl) lastPacketEl.textContent = "—";
+      if (sampleRateEl) sampleRateEl.textContent = String(Math.round((cfg.pollMs ?? 5000) / 1000));
+      charts.tempSpark.data.labels = [];
+      charts.tempSpark.data.datasets[0].data = [];
+      charts.tempSpark.update("none");
+      charts.humSpark.data.labels = [];
+      charts.humSpark.data.datasets[0].data = [];
+      charts.humSpark.update("none");
+      charts.soilSpark.data.labels = [];
+      charts.soilSpark.data.datasets[0].data = [];
+      charts.soilSpark.update("none");
+      charts.lightSpark.data.labels = [];
+      charts.lightSpark.data.datasets[0].data = [];
+      charts.lightSpark.update("none");
+      charts.main.data.labels = [];
+      charts.main.data.datasets[0].data = [];
+      charts.main.data.datasets[1].data = [];
+      charts.main.data.datasets[2].data = [];
+      charts.main.update("none");
+      renderAlerts([{ title: "Aucune donnée capteur reçue", time: "—", level: "info" }]);
+      if (alertsCountEl) alertsCountEl.textContent = "0";
+      renderTable(readings);
+      return;
+    }
+
+    valueEls.temperature.textContent = formatSensorValue(last.temperature, 1);
+    valueEls.humidity.textContent = formatSensorValue(last.humidity, 0);
+    valueEls.soil.textContent = formatSensorValue(last.soil, 0);
+    valueEls.light.textContent = formatSensorValue(last.light, 0);
 
     const tState = computeState("temperature", last.temperature);
     const hState = computeState("humidity", last.humidity);
@@ -669,26 +758,22 @@ function init() {
     deltaEls.light.textContent = deltaFromSeries(seriesValues(points, "light")) ?? "—";
 
     if (soilAdviceEl) soilAdviceEl.textContent = soilAdvice(last.soil);
-    if (lastUpdatedEl) lastUpdatedEl.textContent = `Dernière mise à jour: ${formatTime(last.at)}`;
-    if (lastPacketEl) lastPacketEl.textContent = formatTime(last.at);
+    if (lastUpdatedEl) lastUpdatedEl.textContent = last.at ? `Dernière mise à jour: ${formatTime(last.at)}` : "—";
+    if (lastPacketEl) lastPacketEl.textContent = last.at ? formatTime(last.at) : "—";
     if (sampleRateEl) sampleRateEl.textContent = String(Math.round((cfg.pollMs ?? 5000) / 1000));
 
     charts.tempSpark.data.labels = seriesLabels(points);
     charts.tempSpark.data.datasets[0].data = seriesValues(points, "temperature");
     charts.tempSpark.update("none");
-
     charts.humSpark.data.labels = seriesLabels(points);
     charts.humSpark.data.datasets[0].data = seriesValues(points, "humidity");
     charts.humSpark.update("none");
-
     charts.soilSpark.data.labels = seriesLabels(points);
     charts.soilSpark.data.datasets[0].data = seriesValues(points, "soil");
     charts.soilSpark.update("none");
-
     charts.lightSpark.data.labels = seriesLabels(points);
     charts.lightSpark.data.datasets[0].data = seriesValues(points, "light");
     charts.lightSpark.update("none");
-
     charts.main.data.labels = seriesLabels(points);
     charts.main.data.datasets[0].data = seriesValues(points, "temperature");
     charts.main.data.datasets[1].data = seriesValues(points, "humidity");
@@ -696,13 +781,12 @@ function init() {
     charts.main.update("none");
 
     const alerts = [];
-    if (tState.level === "bad") alerts.push({ title: "Température trop élevée", time: formatTime(last.at), level: "danger" });
-    if (sState.level === "bad") alerts.push({ title: "Sol trop sec", time: formatTime(last.at), level: "danger" });
-    if (hState.level === "warn") alerts.push({ title: "Humidité hors plage", time: formatTime(last.at), level: "warn" });
-    if (lState.level === "warn") alerts.push({ title: "Luminosité atypique", time: formatTime(last.at), level: "warn" });
+    if (tState.level === "bad") alerts.push({ title: "Température trop élevée", time: last.at ? formatTime(last.at) : "—", level: "danger" });
+    if (sState.level === "bad") alerts.push({ title: "Sol trop sec", time: last.at ? formatTime(last.at) : "—", level: "danger" });
+    if (hState.level === "warn") alerts.push({ title: "Humidité hors plage", time: last.at ? formatTime(last.at) : "—", level: "warn" });
+    if (lState.level === "warn") alerts.push({ title: "Luminosité atypique", time: last.at ? formatTime(last.at) : "—", level: "warn" });
     renderAlerts(alerts);
     if (alertsCountEl) alertsCountEl.textContent = String(alerts.length);
-
     renderTable(readings);
   }
 
@@ -755,17 +839,29 @@ function init() {
     }
   }
 
+  function hasAnySensorValue(point) {
+    if (!point) return false;
+    return (
+      (point.temperature != null && Number.isFinite(point.temperature)) ||
+      (point.humidity != null && Number.isFinite(point.humidity)) ||
+      (point.soil != null && Number.isFinite(point.soil)) ||
+      (point.light != null && Number.isFinite(point.light))
+    );
+  }
+
   async function refresh({ forceHistory = false } = {}) {
     try {
       if (cfg.dataMode === "api") {
         setBackendStatus(false, "Backend: connexion…");
         const latest = await fetchLatestFromApi(cfg);
-        pushPoint(latest);
+        if (hasAnySensorValue(latest)) {
+          pushPoint(latest);
+        }
 
         if (forceHistory && points.length < 6) {
           const hist = await fetchHistoryFromApi(cfg, range);
           if (hist.length) {
-            points = hist.slice(-36);
+            points = hist.filter(hasAnySensorValue).slice(-36);
             readings = [];
             for (const p of points) {
               readings.push({
@@ -782,7 +878,6 @@ function init() {
 
         setBackendStatus(true, "Backend: connecté");
       } else {
-        // mock mode
         setBackendStatus(false, "Backend: non connecté (mock)");
         const p = makeMockPoint(points[points.length - 1]);
         pushPoint(p);
@@ -791,24 +886,25 @@ function init() {
       await refreshWeather();
     } catch (e) {
       setBackendStatus(false, `Backend: erreur (${String(e?.message || e)})`);
-      if (cfg.dataMode !== "mock") {
-        // fallback to mock point to keep UI alive
-        const p = makeMockPoint(points[points.length - 1]);
-        pushPoint(p);
+      if (cfg.dataMode === "api") {
         updateUi();
       }
       await refreshWeather();
     }
   }
 
-  // Seed with a few points
-  for (let i = 0; i < 14; i++) {
-    const p = makeMockPoint(points[points.length - 1]);
-    p.at = new Date(Date.now() - (14 - i) * 60_000);
-    pushPoint(p);
+  if (cfg.dataMode === "mock") {
+    for (let i = 0; i < 14; i++) {
+      const p = makeMockPoint(points[points.length - 1]);
+      p.at = new Date(Date.now() - (14 - i) * 60_000);
+      pushPoint(p);
+    }
   }
   updateUi();
   refreshWeather({ force: true });
+  if (cfg.dataMode === "api") {
+    refresh({ forceHistory: true });
+  }
 
   $("#refreshBtn")?.addEventListener("click", () => refresh({ forceHistory: true }));
 

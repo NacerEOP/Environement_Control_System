@@ -1,23 +1,19 @@
 /*
-  CropCare ESP32 → XAMPP (PHP) → Dashboard
+  CropCare ESP32 -> XAMPP (PHP) -> Dashboard
 
-  Capteurs (données réelles):
-  - DHT11 (GPIO4) : température + humidité air
-  - Capteur humidité sol résistif (GPIO34, analogique)
-  - BH1750 (I2C SDA=21, SCL=20) : luminosité en lux
+  Features:
+  - SSID/PASS entered via Serial and saved in flash (Preferences / NVS)
+  - If user presses Enter without typing, keeps saved values
+  - Wi-Fi connect is blocking and simple (same style as your old working sketch)
+  - Sensors:
+      DHT11 (GPIO4)
+      Soil analog (GPIO34)
+      BH1750 I2C (SDA=21, SCL=20) as you said you have 21/20 on your board
+  - Sends JSON to your PHP endpoint
 
-  Wi‑Fi : SSID/Pass saisis au démarrage via le Moniteur Série (ou conservés en flash).
-  Envoi : POST vers ton API PHP (XAMPP) pour alimenter le dashboard.
-  Optionnel : serveur web local sur l’ESP32 (GET /api/sensors = dernière lecture).
-
-  La météo (Open‑Meteo) reste côté dashboard ; ce sketch ne gère que les capteurs.
-
-  Libraries (Arduino IDE) :
-  - DHT sensor library (Adafruit)
-  - Adafruit Unified Sensor
-  - BH1750 (ex: "BH1750" by Christopher Laws)
-  - ESPAsyncWebServer (https://github.com/me-no-dev/ESPAsyncWebServer)
-  - AsyncTCP (https://github.com/me-no-dev/AsyncTCP)
+  IMPORTANT:
+  - ESP32 uses 2.4 GHz Wi-Fi only.
+  - Power sensors from 3.3V unless your module is confirmed 3.3V safe.
 */
 
 #include <WiFi.h>
@@ -32,32 +28,38 @@
 
 AsyncWebServer server(80);
 
-// Dernières valeurs lues (pour /api/sensors local)
+// Example sensor values (replace with your real ones)
 float g_temp = 0, g_hum = 0, g_soil = 0, g_lux = 0;
+
 bool BH_OK = false;
 
 // ------------------- Pins -------------------
 #define I2C_SDA_PIN 21
 #define I2C_SCL_PIN 20
+
 #define DHTPIN 4
 #define DHTTYPE DHT11
+
 #define SOIL_PIN 34
 
-// ------------------- Wi‑Fi (flash) -------------------
-#define MAX_SSID_LEN 33
-#define MAX_PASS_LEN 65
+// ------------------- Wi-Fi flash storage -------------------
+#define MAX_SSID_LEN 33 // 32 + null
+#define MAX_PASS_LEN 65 // 64 + null
+
 Preferences prefs;
+
 char WIFI_SSID[MAX_SSID_LEN];
 char WIFI_PASS[MAX_PASS_LEN];
 
-// ------------------- API XAMPP -------------------
-// Remplace par l’IP de ton PC sur le réseau (ipconfig → IPv4)
-String API_INGEST_URL = "http://192.168.1.20/Hackaton%20projet%20Crop%20care/api/ingest";
+// ------------------- API -------------------
+String API_INGEST_URL = "http://192.168.31.5/Hackaton%20projet%20Crop%20care/api/ingest";
 String INGEST_TOKEN = "";
 
-// ------------------- Capteurs -------------------
+// ------------------- Sensors -------------------
 DHT dht(DHTPIN, DHTTYPE);
 BH1750 lightMeter;
+
+// Soil calibration
 int SOIL_DRY = 3200;
 int SOIL_WET = 1400;
 
@@ -65,15 +67,18 @@ int SOIL_WET = 1400;
 unsigned long lastSendMs = 0;
 const unsigned long SEND_EVERY_MS = 5000;
 
-// ------------------- NTP -------------------
-void setupTime() {
+// ------------------- Time (NTP) -------------------
+void setupTime()
+{
   configTime(0, 0, "pool.ntp.org", "time.google.com");
 }
 
-String isoNowUTC() {
+String isoNowUTC()
+{
   time_t now;
   time(&now);
-  if (now < 100000) return "";
+  if (now < 100000)
+    return "";
   struct tm t;
   gmtime_r(&now, &t);
   char buf[30];
@@ -82,149 +87,215 @@ String isoNowUTC() {
 }
 
 // ------------------- Helpers -------------------
-float clampf(float v, float mn, float mx) {
-  if (v < mn) return mn;
-  if (v > mx) return mx;
+float clampf(float v, float mn, float mx)
+{
+  if (v < mn)
+    return mn;
+  if (v > mx)
+    return mx;
   return v;
 }
 
-float soilPercentFromRaw(int raw) {
-  if (SOIL_DRY == SOIL_WET) return 0.0f;
+float soilPercentFromRaw(int raw)
+{
+  if (SOIL_DRY == SOIL_WET)
+    return 0.0f;
   float pct = 100.0f * (float)(SOIL_DRY - raw) / (float)(SOIL_DRY - SOIL_WET);
   return clampf(pct, 0.0f, 100.0f);
 }
 
-// ------------------- Lecture ligne Série -------------------
-void readLineOrEmpty(char *buffer, size_t maxLen, uint32_t timeoutMs = 60000) {
+// ------------------- Serial input -------------------
+void readLineOrEmpty(char *buffer, size_t maxLen, uint32_t timeoutMs = 60000)
+{
   size_t i = 0;
   uint32_t start = millis();
-  while (true) {
-    while (!Serial.available()) {
-      delay(10);
-      if (timeoutMs > 0 && (millis() - start) > timeoutMs) {
+
+  while (true)
+  {
+    while (!Serial.available())
+    {
+      delay(10); // important: feeds watchdog / lets WiFi task run
+      if (timeoutMs > 0 && (millis() - start) > timeoutMs)
+      {
         buffer[0] = '\0';
         return;
       }
     }
+
     char c = Serial.read();
-    if (c == '\n' || c == '\r') {
-      if (c == '\r' && Serial.available() && Serial.peek() == '\n') Serial.read();
+
+    if (c == '\n' || c == '\r')
+    {
+      if (c == '\r' && Serial.peek() == '\n')
+        Serial.read();
       break;
     }
-    if (i < maxLen - 1) buffer[i++] = c;
+
+    if (i < maxLen - 1)
+      buffer[i++] = c;
   }
+
   buffer[i] = '\0';
 }
 
-void trimRight(char *s) {
+void trimRight(char *s)
+{
   int len = (int)strlen(s);
-  while (len > 0) {
+  while (len > 0)
+  {
     char c = s[len - 1];
-    if (c == ' ' || c == '\t' || c == '\r' || c == '\n') s[--len] = '\0';
-    else break;
+    if (c == ' ' || c == '\t' || c == '\r' || c == '\n')
+    {
+      s[len - 1] = '\0';
+      len--;
+    }
+    else
+    {
+      break;
+    }
   }
 }
 
-// ------------------- Flash (NVS) -------------------
-void loadCredsFromFlash() {
+// ------------------- Flash save/load -------------------
+void loadCredsFromFlash()
+{
   prefs.begin("wifi", true);
   String s = prefs.getString("ssid", "");
   String p = prefs.getString("pass", "");
   prefs.end();
+
   strncpy(WIFI_SSID, s.c_str(), MAX_SSID_LEN);
   WIFI_SSID[MAX_SSID_LEN - 1] = '\0';
+
   strncpy(WIFI_PASS, p.c_str(), MAX_PASS_LEN);
   WIFI_PASS[MAX_PASS_LEN - 1] = '\0';
 }
 
-void saveCredsToFlash() {
+void saveCredsToFlash()
+{
   prefs.begin("wifi", false);
   prefs.putString("ssid", WIFI_SSID);
   prefs.putString("pass", WIFI_PASS);
   prefs.end();
 }
 
-void promptAndMaybeUpdateCreds() {
+void promptAndMaybeUpdateCreds()
+{
   char inputSSID[MAX_SSID_LEN];
   char inputPASS[MAX_PASS_LEN];
+
   Serial.println();
   Serial.println("----- WiFi credentials -----");
   Serial.print("Saved SSID: ");
   Serial.println(strlen(WIFI_SSID) ? WIFI_SSID : "(none)");
+
   Serial.println("Enter WIFI SSID (press Enter to keep saved):");
   readLineOrEmpty(inputSSID, MAX_SSID_LEN, 0);
   trimRight(inputSSID);
+
   Serial.println("Enter WIFI PASSWORD (press Enter to keep saved):");
   readLineOrEmpty(inputPASS, MAX_PASS_LEN, 0);
   trimRight(inputPASS);
+
   bool changed = false;
-  if (strlen(inputSSID) > 0) {
+
+  if (strlen(inputSSID) > 0)
+  {
     strncpy(WIFI_SSID, inputSSID, MAX_SSID_LEN);
     WIFI_SSID[MAX_SSID_LEN - 1] = '\0';
     changed = true;
   }
-  if (strlen(inputPASS) > 0) {
+
+  if (strlen(inputPASS) > 0)
+  {
     strncpy(WIFI_PASS, inputPASS, MAX_PASS_LEN);
     WIFI_PASS[MAX_PASS_LEN - 1] = '\0';
     changed = true;
   }
-  if (changed) {
+
+  if (changed)
+  {
     saveCredsToFlash();
     Serial.println("Saved to flash.");
-  } else {
+  }
+  else
+  {
     Serial.println("Keeping saved credentials.");
   }
+
+  Serial.printf("Final SSID len=%d, PASS len=%d\n", (int)strlen(WIFI_SSID), (int)strlen(WIFI_PASS));
 }
 
-// ------------------- Connexion Wi‑Fi (bloquante) -------------------
-bool connectWifiBlocking(uint32_t timeoutMs = 30000) {
-  if (strlen(WIFI_SSID) == 0) {
+// ------------------- Wi-Fi connect (blocking) -------------------
+bool connectWifiBlocking(uint32_t timeoutMs = 30000)
+{
+  if (strlen(WIFI_SSID) == 0)
+  {
     Serial.println("No SSID stored. Not connecting.");
     return false;
   }
+
   WiFi.mode(WIFI_STA);
   WiFi.disconnect(true, true);
   delay(300);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm); // WIFI_POWER_8_5dBm
   WiFi.begin(WIFI_SSID, WIFI_PASS);
+
   Serial.print("Connecting to WiFi");
   uint32_t start = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs) {
+  while (WiFi.status() != WL_CONNECTED && (millis() - start) < timeoutMs)
+  {
     delay(500);
     Serial.print(".");
   }
   Serial.println();
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("WiFi connection failed (timeout).");
-    return false;
-  }
-  Serial.println("Connected!");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
 
-  if (LittleFS.begin(true)) {
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("Connected!");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    // SERVER HOSTED SITE
+    if (!LittleFS.begin(true))
+    {
+      Serial.println("LittleFS mount failed");
+    }
+
+    // Serve your whole website
     server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
-  } else {
-    Serial.println("LittleFS mount failed");
-  }
-  server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request) {
+
+    // Sensors API
+    server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request)
+              {
     String json = "{";
     json += "\"temperature\":" + String(g_temp, 1) + ",";
     json += "\"humidity\":" + String(g_hum, 0) + ",";
     json += "\"soil\":" + String(g_soil, 0) + ",";
-    json += "\"light\":" + String(g_lux, 0);
+    json += "\"lux\":" + String(g_lux, 0);
     json += "}";
-    request->send(200, "application/json", json);
-  });
-  server.begin();
-  return true;
+    request->send(200, "application/json", json); });
+
+    server.begin();
+
+    return true;
+  }
+
+  Serial.println("WiFi connection failed (timeout).");
+  Serial.printf("WiFi status=%d\n", (int)WiFi.status());
+  return false;
 }
 
-// ------------------- POST vers XAMPP -------------------
-bool postReading(float temperature, float humidity, float soilPct, float lux) {
-  if (WiFi.status() != WL_CONNECTED) return false;
+// ------------------- HTTP POST -------------------
+bool postReading(float temperature, float humidity, float soilPct, float lux)
+{
+  if (WiFi.status() != WL_CONNECTED)
+    return false;
+
   HTTPClient http;
   http.begin(API_INGEST_URL);
   http.addHeader("Content-Type", "application/json");
+
   String at = isoNowUTC();
   String body = "{";
   body += "\"temperature\":" + String(temperature, 1) + ",";
@@ -232,54 +303,76 @@ bool postReading(float temperature, float humidity, float soilPct, float lux) {
   body += "\"soil\":" + String(soilPct, 0) + ",";
   body += "\"light\":" + String(lux, 0) + ",";
   body += "\"device\":\"esp32\"";
-  if (INGEST_TOKEN.length() > 0) body += ",\"token\":\"" + INGEST_TOKEN + "\"";
-  if (at.length() > 0) body += ",\"at\":\"" + at + "\"";
+  if (INGEST_TOKEN.length() > 0)
+    body += ",\"token\":\"" + INGEST_TOKEN + "\"";
+  if (at.length() > 0)
+    body += ",\"at\":\"" + at + "\"";
   body += "}";
+
   int code = http.POST(body);
   String resp = http.getString();
   http.end();
+
   Serial.printf("POST ingest -> %d\n", code);
-  if (resp.length()) Serial.println(resp);
+  if (resp.length())
+    Serial.println(resp);
+
   return code >= 200 && code < 300;
 }
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
   delay(200);
+
   Serial.println();
-  Serial.println("CropCare ESP32 - Booting...");
+  Serial.println("Booting...");
 
   loadCredsFromFlash();
   promptAndMaybeUpdateCreds();
+
   bool ok = connectWifiBlocking(30000);
 
+  // Init I2C and sensors regardless; if Wi-Fi fails, sensors can still read
   BH_OK = false;
-  Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+
+  Wire.begin(21, 20);
   BH_OK = lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE);
-  if (!BH_OK) Serial.println("BH1750 init failed.");
+  if (!BH_OK)
+    Serial.println("BH1750 init failed.");
+
   dht.begin();
   analogReadResolution(12);
 
-  if (ok) setupTime();
+  if (ok)
+    setupTime();
 }
 
-void loop() {
-  if (millis() - lastSendMs < SEND_EVERY_MS) return;
+void loop()
+{
+  if (millis() - lastSendMs < SEND_EVERY_MS)
+    return;
   lastSendMs = millis();
 
+  // Try reconnect sometimes if disconnected
   static unsigned long lastRetry = 0;
-  if (WiFi.status() != WL_CONNECTED) {
-    if (millis() - lastRetry > 10000) {
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    if (millis() - lastRetry > 10000)
+    {
       lastRetry = millis();
       connectWifiBlocking(30000);
-      if (WiFi.status() == WL_CONNECTED) setupTime();
+      if (WiFi.status() == WL_CONNECTED)
+        setupTime();
     }
     return;
   }
 
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
-  if (isnan(humidity) || isnan(temperature)) {
+
+  if (isnan(humidity) || isnan(temperature))
+  {
     Serial.println("DHT11 read failed");
     return;
   }
@@ -288,13 +381,10 @@ void loop() {
   float soilPct = soilPercentFromRaw(soilRaw);
 
   float lux = 0;
-  if (BH_OK) lux = lightMeter.readLightLevel();
-  if (lux < 0) lux = 0;
-
-  g_temp = temperature;
-  g_hum = humidity;
-  g_soil = soilPct;
-  g_lux = lux;
+  if (BH_OK)
+    lux = lightMeter.readLightLevel();
+  else
+    lux = -1;
 
   Serial.printf("T=%.1fC H=%.0f%% SoilRaw=%d Soil=%.0f%% Lux=%.0f\n",
                 temperature, humidity, soilRaw, soilPct, lux);
