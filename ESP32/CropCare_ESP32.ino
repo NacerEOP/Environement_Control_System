@@ -1,27 +1,19 @@
 /*
-  CropCare ESP32 → XAMPP (PHP) → Dashboard
+  CropCare ESP32 — Serveur sur l’ESP32 (pas de PHP / XAMPP)
 
-  Capteurs (données réelles):
+  L’ESP32 lit les capteurs et sert lui‑même l’API (GET /api/latest, GET /api/history).
+  Le dashboard (HTML/JS) peut être servi depuis l’ESP32 (LittleFS) ou depuis un PC ;
+  dans les deux cas, apiBaseUrl = http://IP_ESP32 (ex. http://192.168.1.100).
+
+  Capteurs:
   - DHT11 (GPIO4) : température + humidité air
-  - Capteur humidité sol résistif (GPIO34, analogique)
-  - BH1750 (I2C SDA=21, SCL=20) : luminosité en lux
+  - Capteur humidité sol résistif (GPIO34)
+  - BH1750 (I2C SDA=21, SCL=20) : luminosité (lux)
 
-  Wi‑Fi : SSID/Pass saisis au démarrage via le Moniteur Série (ou conservés en flash).
-  Envoi : POST vers ton API PHP (XAMPP) pour alimenter le dashboard.
-  Optionnel : serveur web local sur l’ESP32 (GET /api/sensors = dernière lecture).
-
-  La météo (Open‑Meteo) reste côté dashboard ; ce sketch ne gère que les capteurs.
-
-  Libraries (Arduino IDE) :
-  - DHT sensor library (Adafruit)
-  - Adafruit Unified Sensor
-  - BH1750 (ex: "BH1750" by Christopher Laws)
-  - ESPAsyncWebServer (https://github.com/me-no-dev/ESPAsyncWebServer)
-  - AsyncTCP (https://github.com/me-no-dev/AsyncTCP)
+  Libraries: DHT (Adafruit), BH1750, ESPAsyncWebServer, AsyncTCP, Preferences, LittleFS.
 */
 
 #include <WiFi.h>
-#include <HTTPClient.h>
 #include <Wire.h>
 #include <BH1750.h>
 #include <DHT.h>
@@ -32,9 +24,22 @@
 
 AsyncWebServer server(80);
 
-// Dernières valeurs lues (pour /api/sensors local)
+// Dernières valeurs (et buffer pour /api/latest + /api/history)
 float g_temp = 0, g_hum = 0, g_soil = 0, g_lux = 0;
 bool BH_OK = false;
+
+// Historique en RAM (format attendu par le dashboard)
+#define HISTORY_MAX 50
+struct Reading {
+  float temperature;
+  float humidity;
+  float soil;
+  float light;
+  char at[28]; // ISO date
+};
+Reading historyBuf[HISTORY_MAX];
+int historyCount = 0;
+int historyIndex = 0; // prochaine écriture (circular)
 
 // ------------------- Pins -------------------
 #define I2C_SDA_PIN 21
@@ -50,10 +55,7 @@ Preferences prefs;
 char WIFI_SSID[MAX_SSID_LEN];
 char WIFI_PASS[MAX_PASS_LEN];
 
-// ------------------- API XAMPP -------------------
 // Remplace par l’IP de ton PC sur le réseau (ipconfig → IPv4)
-String API_INGEST_URL = "http://192.168.1.20/Hackaton%20projet%20Crop%20care/api/ingest";
-String INGEST_TOKEN = "";
 
 // ------------------- Capteurs -------------------
 DHT dht(DHTPIN, DHTTYPE);
@@ -206,42 +208,76 @@ bool connectWifiBlocking(uint32_t timeoutMs = 30000) {
   } else {
     Serial.println("LittleFS mount failed");
   }
+
+  // CORS pour que le dashboard (même depuis un autre origine) puisse appeler l'API
+  auto addCors = [](AsyncWebServerRequest *req) {
+    req->addHeader("Access-Control-Allow-Origin", "*");
+    req->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    req->addHeader("Access-Control-Allow-Headers", "Content-Type");
+  };
+
+  // GET /api/latest et /api/latest/ — dernière lecture (même format que le PHP)
+  auto handleLatest = [](AsyncWebServerRequest *request) {
+    addCors(request);
+    String at = isoNowUTC();
+    if (at.length() == 0) at = "\"\"";
+    else at = "\"" + at + "\"";
+    String json = "{\"temperature\":" + String(g_temp, 1) +
+                  ",\"humidity\":" + String(g_hum, 0) +
+                  ",\"soil\":" + String(g_soil, 0) +
+                  ",\"light\":" + String(g_lux, 0) +
+                  ",\"at\":" + at + "}";
+    request->send(200, "application/json", json);
+  };
+  server.on("/api/latest", HTTP_GET, handleLatest);
+  server.on("/api/latest/", HTTP_GET, handleLatest);
+
+  // GET /api/history ou /api/history/?range=1h|24h|7d — tableau de points (max 36, plus récent en premier)
+  auto handleHistory = [](AsyncWebServerRequest *request) {
+    addCors(request);
+    int n = (historyCount < 36) ? historyCount : 36;
+    String out = "[";
+    for (int i = 0; i < n; i++) {
+      int j = (historyIndex - 1 - i + HISTORY_MAX * 2) % HISTORY_MAX;
+      Reading *r = &historyBuf[j];
+      if (i > 0) out += ",";
+      out += "{\"temperature\":" + String(r->temperature, 1) +
+             ",\"humidity\":" + String(r->humidity, 0) +
+             ",\"soil\":" + String(r->soil, 0) +
+             ",\"light\":" + String(r->light, 0) +
+             ",\"at\":\"" + String(r->at) + "\"}";
+    }
+    out += "]";
+    request->send(200, "application/json", out);
+  };
+  server.on("/api/history", HTTP_GET, handleHistory);
+  server.on("/api/history/", HTTP_GET, handleHistory);
+
   server.on("/api/sensors", HTTP_GET, [](AsyncWebServerRequest *request) {
-    String json = "{";
-    json += "\"temperature\":" + String(g_temp, 1) + ",";
-    json += "\"humidity\":" + String(g_hum, 0) + ",";
-    json += "\"soil\":" + String(g_soil, 0) + ",";
-    json += "\"light\":" + String(g_lux, 0);
-    json += "}";
+    addCors(request);
+    String json = "{\"temperature\":" + String(g_temp, 1) + ",\"humidity\":" + String(g_hum, 0) +
+                  ",\"soil\":" + String(g_soil, 0) + ",\"light\":" + String(g_lux, 0) + "}";
     request->send(200, "application/json", json);
   });
+
   server.begin();
   return true;
 }
 
-// ------------------- POST vers XAMPP -------------------
-bool postReading(float temperature, float humidity, float soilPct, float lux) {
-  if (WiFi.status() != WL_CONNECTED) return false;
-  HTTPClient http;
-  http.begin(API_INGEST_URL);
-  http.addHeader("Content-Type", "application/json");
+void pushReading(float temperature, float humidity, float soilPct, float lux) {
+  Reading *r = &historyBuf[historyIndex];
+  r->temperature = temperature;
+  r->humidity = humidity;
+  r->soil = soilPct;
+  r->light = lux;
   String at = isoNowUTC();
-  String body = "{";
-  body += "\"temperature\":" + String(temperature, 1) + ",";
-  body += "\"humidity\":" + String(humidity, 0) + ",";
-  body += "\"soil\":" + String(soilPct, 0) + ",";
-  body += "\"light\":" + String(lux, 0) + ",";
-  body += "\"device\":\"esp32\"";
-  if (INGEST_TOKEN.length() > 0) body += ",\"token\":\"" + INGEST_TOKEN + "\"";
-  if (at.length() > 0) body += ",\"at\":\"" + at + "\"";
-  body += "}";
-  int code = http.POST(body);
-  String resp = http.getString();
-  http.end();
-  Serial.printf("POST ingest -> %d\n", code);
-  if (resp.length()) Serial.println(resp);
-  return code >= 200 && code < 300;
+  if (at.length() > 0) strncpy(r->at, at.c_str(), sizeof(r->at) - 1);
+  r->at[sizeof(r->at) - 1] = '\0';
+  historyIndex = (historyIndex + 1) % HISTORY_MAX;
+  if (historyCount < HISTORY_MAX) historyCount++;
 }
+
+// Plus de POST vers un PC : les données sont servies directement par l'ESP32 (GET /api/latest, /api/history).
 
 void setup() {
   Serial.begin(115200);
@@ -299,5 +335,5 @@ void loop() {
   Serial.printf("T=%.1fC H=%.0f%% SoilRaw=%d Soil=%.0f%% Lux=%.0f\n",
                 temperature, humidity, soilRaw, soilPct, lux);
 
-  postReading(temperature, humidity, soilPct, lux);
+  pushReading(temperature, humidity, soilPct, lux);
 }
