@@ -1,8 +1,10 @@
 export const DEFAULT_CONFIG = {
-  // Mets ici l'URL de ton backend (ex: "http://localhost/cropcare-api" ou "http://localhost:8000")
+  // URL de base du projet (sans slash final). Si vide, prise automatiquement depuis la page.
+  // Ex. XAMPP même PC: "http://localhost/Hackaton%20projet%20Crop%20care"
+  // Ex. PC sur le réseau (pour CORS si besoin): "http://192.168.1.20/Hackaton%20projet%20Crop%20care"
   apiBaseUrl: "",
-  // "mock" pour afficher une démo sans backend, "api" pour fetch depuis ton API
-  dataMode: "mock",
+  // "mock" = démo sans capteurs. "api" = données depuis l'API PHP (latest + history)
+  dataMode: "api",
   // polling en ms
   pollMs: 5000,
   // météo (Open-Meteo, sans clé)

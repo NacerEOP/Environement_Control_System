@@ -471,10 +471,21 @@ function createMainChart(canvas) {
   });
 }
 
+function getApiBase(cfg) {
+  let base = (cfg.apiBaseUrl || "").trim().replace(/\/$/, "");
+  if (base) return base;
+  // Si vide: même origine que la page (quand le dashboard est servi depuis le même Apache)
+  if (typeof window !== "undefined" && window.location) {
+    const origin = window.location.origin;
+    const path = window.location.pathname.replace(/\/[^/]*$/, "");
+    return path ? origin + path : origin;
+  }
+  throw new Error("API base URL manquante. Renseigne apiBaseUrl dans config.js ou Paramètres.");
+}
+
 async function fetchLatestFromApi(cfg) {
-  const base = (cfg.apiBaseUrl || "").replace(/\/$/, "");
-  if (!base) throw new Error("API base URL manquante");
-  const res = await fetch(`${base}/api/latest`, { cache: "no-store" });
+  const base = getApiBase(cfg);
+  const res = await fetch(`${base}/api/latest/`, { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   // expected keys: temperature, humidity, soil, light, at (optional)
@@ -488,9 +499,8 @@ async function fetchLatestFromApi(cfg) {
 }
 
 async function fetchHistoryFromApi(cfg, range) {
-  const base = (cfg.apiBaseUrl || "").replace(/\/$/, "");
-  if (!base) throw new Error("API base URL manquante");
-  const res = await fetch(`${base}/api/history?range=${encodeURIComponent(range)}`, {
+  const base = getApiBase(cfg);
+  const res = await fetch(`${base}/api/history/?range=${encodeURIComponent(range)}`, {
     cache: "no-store",
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
